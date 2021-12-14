@@ -1,0 +1,36 @@
+---
+title: "Panola GA Bird Banding"
+author: "Maya Lapp"
+date: "12/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+```
+
+```{r load_data}
+recap_data <- read_excel("All Recaps Dec 9 2021.xls") 
+band_data <- read_excel("All bands Dec 9 2021.xls") %>% 
+  rename(Net = `Net/box`)
+
+all_data <- recap_data %>% full_join(band_data)
+
+all_data <- all_data %>% 
+  rename(banding_date = `Banding Date`, recapture_date = `Recapture Date`, how_captured = `How Captured`, band_number = `Band Number`, wing_chord = `Wing Chord`) %>% 
+  mutate(net_number = as.numeric(Net))
+
+```
+
+```{r}
+all_data %>% 
+  group_by(net_number) %>% 
+  summarize(num_birds= n())
+
+all_data %>% 
+  group_by(net_number, Species) %>% 
+  summarize(num_birds= n())
+```
+
