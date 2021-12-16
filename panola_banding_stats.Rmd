@@ -10,35 +10,44 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(lubridate)
+
+# Note: **PPP** = "Potential problem point" in code if trying to run new data 
 ```
 
-```{r load_data}
+```{r load_data, warning=FALSE}
 recap_data <- read_excel("All Recaps Dec 9 2021.xls") 
 band_data <- read_excel("All bands Dec 9 2021.xls") %>% 
   rename(Net = `Net/box`)
 
 all_data <- recap_data %>% 
   full_join(band_data)  %>% # join recap and band data 
-  mutate(Time = str_split_fixed(Time, " ", 2)[,2]) # only keep time (not [incorrect] date) **Potential problem point**
+  mutate(Time = str_split_fixed(Time, " ", 2)[,2]) %>% # only keep time (not [incorrect] date) **PPP**
+  rename(banding_date = `Banding Date`, recapture_date = `Recapture Date`, how_captured = `How Captured`, band_number = `Band Number`, wing_chord = `Wing Chord`) %>%  # rename columns without spaces
+  mutate(net_number = as.numeric(Net), Species = as.factor(Species)) %>% # only keep number for nets; change species to factor 
+  mutate(obs_date = coalesce(recapture_date, banding_date)) # **NEXT - make banding_date appear as obs date for new birds
 
-
-all_data <- all_data %>% 
-  rename(banding_date = `Banding Date`, recapture_date = `Recapture Date`, how_captured = `How Captured`, band_number = `Band Number`, wing_chord = `Wing Chord`) %>% 
-  mutate(net_number = as.numeric(Net))
 
 ```
 
 ```{r}
 birds_per_net <- all_data %>% 
   group_by(net_number) %>% 
-  summarize(num_birds= n()) %>% # total number of birds caught in each net
-  filter(num_birds > 1, !is.na(net_number))
-
-birds_per_net
+  summarize(tot_birds= n()) %>% # total number of birds caught in each net
+  filter(tot_birds > 1, !is.na(net_number)) # filter out only "real" nets **PPP** 
 
 
-all_data %>% 
+net_spec <- all_data %>% 
   group_by(net_number, Species) %>% 
-  summarize(num_birds= n())
+  summarize(num_birds = n()) %>% 
+  left_join(birds_per_net) %>% 
+  mutate(perc_species = num_birds/tot_birds*100)
+net_spec
+```
+
+```{r}
+net_spec %>%  
+  filter(Species == "SOSP") %>% 
+  ggplot(aes(x = net_number, y = perc_species))+ 
+  geom_col()
 ```
 
