@@ -23,8 +23,8 @@ all_data <- recap_data %>%
   full_join(band_data)  %>% # join recap and band data 
   mutate(Time = str_split_fixed(Time, " ", 2)[,2]) %>% # only keep time (not [incorrect] date) **PPP**
   rename(banding_date = `Banding Date`, recapture_date = `Recapture Date`, how_captured = `How Captured`, band_number = `Band Number`, wing_chord = `Wing Chord`) %>%  # rename columns without spaces
-  mutate(net_number = as.numeric(Net), Species = as.factor(Species)) %>% # only keep number for nets; change species to factor 
-  mutate(obs_date = coalesce(recapture_date, banding_date)) # **NEXT - make banding_date appear as obs date for new birds
+  mutate(net_number = as.factor(as.numeric(Net)), Species = as.factor(Species)) %>% # only keep number for nets; change species to factor 
+  mutate(obs_date = coalesce(recapture_date, banding_date)) 
 
 
 ```
@@ -32,22 +32,48 @@ all_data <- recap_data %>%
 ```{r}
 birds_per_net <- all_data %>% 
   group_by(net_number) %>% 
-  summarize(tot_birds= n()) %>% # total number of birds caught in each net
-  filter(tot_birds > 1, !is.na(net_number)) # filter out only "real" nets **PPP** 
+  summarize(tot_birds= n()) #%>% # total number of birds caught in each net
+  #filter(tot_birds > 1, !is.na(net_number)) # filter out only "real" nets **PPP** 
 
 
 net_spec <- all_data %>% 
   group_by(net_number, Species) %>% 
   summarize(num_birds = n()) %>% 
   left_join(birds_per_net) %>% 
-  mutate(perc_species = num_birds/tot_birds*100)
+  mutate(perc_species = num_birds/tot_birds*100) 
 net_spec
+
+net_spec_yr <- all_data %>% 
+  mutate(obs_yr = format(obs_date, "%Y")) %>% 
+  group_by(net_number, Species, obs_yr) %>% 
+  summarize(num_birds = n()) %>% 
+  left_join(birds_per_net) %>% 
+  mutate(perc_species = num_birds/tot_birds*100)
+net_spec_yr
+
+net_spec_export <- net_spec %>% select(-tot_birds)
+net_spec_yr_export <- net_spec_yr %>% select(-tot_birds)
+
+
+write_excel_csv(net_spec_export, file = paste(Sys.Date(), "_net_percSpecies", ".csv", sep = ""))
+write_excel_csv(net_spec_yr_export, file = paste(Sys.Date(), "_net_percSpecies_yr", ".csv", sep =""))
+
 ```
 
+
 ```{r}
-net_spec %>%  
-  filter(Species == "SOSP") %>% 
-  ggplot(aes(x = net_number, y = perc_species))+ 
-  geom_col()
+
+plot_export <- net_spec_yr %>% 
+  filter(Species == "AMRO") %>% 
+  ggplot(aes(x = obs_yr, y = perc_species))+ 
+  geom_point()+
+  facet_wrap(~net_number, drop = FALSE) + 
+  labs(y = "Percent of Species", x = "Year", title = "Percent of American Robins in Nets over time")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggsave("plot_example.pdf", plot = plot_export)
+```
+```{r}
+all_data %>% filter(net_number == 16, Species == "AMRO")
 ```
 
