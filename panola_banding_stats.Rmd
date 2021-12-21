@@ -74,6 +74,6 @@ plot_export <- net_spec_yr %>%
 ggsave("plot_example.pdf", plot = plot_export)
 ```
 ```{r}
-all_data %>% filter(net_number == 16, Species == "AMRO")
+all_data %>% filter(net_number == 1719)
 ```
 
