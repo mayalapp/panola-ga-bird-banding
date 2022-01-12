@@ -20,7 +20,7 @@ recap_data <- read_excel("All Recaps Dec 9 2021.xls")
 band_data <- read_excel("All bands Dec 9 2021.xls") %>% 
   rename(Net = `Net/box`)
 
-# data cleaning
+# data cleaning for banding data
 all_data <- recap_data %>% 
   full_join(band_data)  %>% # join recap and band data 
   mutate(Time = str_split_fixed(Time, " ", 2)[,2]) %>% # only keep time (not [incorrect] date) **PPP**
@@ -28,12 +28,25 @@ all_data <- recap_data %>%
   mutate(net_number = as.factor(as.numeric(Net)), Species = as.factor(Species)) %>% # only keep number for nets; change species to factor 
   filter(!is.nan(net_number)) %>% 
   mutate(obs_date = coalesce(recapture_date, banding_date)) %>% # create variable for data of observation (banding date if first time captured, otherwise recapture date)
-  mutate(obs_yr = format(obs_date, "%Y")) # create variable for year of observation
+  mutate(obs_yr = as.numeric(format(obs_date, "%Y"))) # create variable for year of observation
  
 
+# read in year-cumulative data (ie net hours and unbanded captures)
+cumulative_data <- read_excel("pano_year_data.xlsx") 
 
 ```
+Looking at BPNH
+```{r}
+bpnh_data <- all_data %>%  
+  group_by(obs_yr) %>% 
+  summarize(tot_birds = n()) %>% 
+  left_join(cumulative_data, by = c("obs_yr" = "year") ) %>% 
+  mutate(bpnh = tot_birds/net_hrs)
+bpnh_data  
+```
 
+
+Looking at percentages of species in nets 
 ```{r}
 # calculate total number of birds caught by each net
 birds_per_net <- all_data %>% 
@@ -43,7 +56,6 @@ birds_per_net <- all_data %>%
 
 # calculate total number of birds caught by each net for each year 
 birds_per_net_per_year <- all_data %>% 
-  mutate(obs_yr = format(obs_date, "%Y")) %>% 
   group_by(net_number, obs_yr) %>% 
   summarize(tot_birds= n()) %>% # total number of birds caught in each net each year
   filter(tot_birds > 1) # ignore nets with only one observation - probably typo **PPP** 
