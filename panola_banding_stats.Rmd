@@ -15,34 +15,40 @@ library(lubridate)
 ```
 
 ```{r load_data, warning=FALSE}
+# read in files with banding data and recapture data 
 recap_data <- read_excel("All Recaps Dec 9 2021.xls") 
 band_data <- read_excel("All bands Dec 9 2021.xls") %>% 
   rename(Net = `Net/box`)
 
+# data cleaning
 all_data <- recap_data %>% 
   full_join(band_data)  %>% # join recap and band data 
   mutate(Time = str_split_fixed(Time, " ", 2)[,2]) %>% # only keep time (not [incorrect] date) **PPP**
   rename(banding_date = `Banding Date`, recapture_date = `Recapture Date`, how_captured = `How Captured`, band_number = `Band Number`, wing_chord = `Wing Chord`) %>%  # rename columns without spaces
   mutate(net_number = as.factor(as.numeric(Net)), Species = as.factor(Species)) %>% # only keep number for nets; change species to factor 
-  mutate(obs_date = coalesce(recapture_date, banding_date)) %>% 
-  mutate(obs_yr = format(obs_date, "%Y"))
+  filter(!is.nan(net_number)) %>% 
+  mutate(obs_date = coalesce(recapture_date, banding_date)) %>% # create variable for data of observation (banding date if first time captured, otherwise recapture date)
+  mutate(obs_yr = format(obs_date, "%Y")) # create variable for year of observation
  
 
 
 ```
 
 ```{r}
+# calculate total number of birds caught by each net
 birds_per_net <- all_data %>% 
   group_by(net_number) %>% 
-  summarize(tot_birds= n()) #%>% # total number of birds caught in each net
-  #filter(tot_birds > 1, !is.na(net_number)) # filter out only "real" nets **PPP** 
+  summarize(tot_birds= n()) %>% # total number of birds caught in each net
+  filter(tot_birds > 1) # ignore nets with only one observation - probably typo **PPP** 
 
+# calculate total number of birds caught by each net for each year 
 birds_per_net_per_year <- all_data %>% 
   mutate(obs_yr = format(obs_date, "%Y")) %>% 
   group_by(net_number, obs_yr) %>% 
-  summarize(tot_birds= n()) #%>% # total number of birds caught in each net each year
-  #filter(tot_birds > 1, !is.na(net_number)) # filter out only "real" nets **PPP** 
+  summarize(tot_birds= n()) %>% # total number of birds caught in each net each year
+  filter(tot_birds > 1) # ignore nets with only one observation - probably typo **PPP** 
 
+# calculate percent of each species for each net 
 net_spec <- all_data %>% 
   group_by(net_number, Species) %>% 
   summarize(num_birds = n()) %>% 
@@ -50,18 +56,19 @@ net_spec <- all_data %>%
   mutate(perc_species = num_birds/tot_birds*100) 
 net_spec
 
+# calculate percent of each species for each net for each year 
 net_spec_yr <- all_data %>% 
-  mutate(obs_yr = format(obs_date, "%Y")) %>% 
   group_by(net_number, Species, obs_yr) %>% 
   summarize(num_birds = n()) %>% 
   left_join(birds_per_net_per_year) %>% 
   mutate(perc_species = num_birds/tot_birds*100)
 net_spec_yr
 
+# create dataframes to export to csv files
 net_spec_export <- net_spec %>% select(-tot_birds)
 net_spec_yr_export <- net_spec_yr %>% select(-tot_birds)
 
-
+#export dataframes to csv files named by current date 
 write_excel_csv(net_spec_export, file = paste(Sys.Date(), "_net_percSpecies", ".csv", sep = ""))
 write_excel_csv(net_spec_yr_export, file = paste(Sys.Date(), "_net_percSpecies_yr", ".csv", sep =""))
 
@@ -69,6 +76,7 @@ write_excel_csv(net_spec_yr_export, file = paste(Sys.Date(), "_net_percSpecies_y
 
 
 ```{r}
+# test example plots 
 bird = "CACH"
 plot_export <- net_spec_yr %>% 
   filter(Species == bird, net_number !=1719) %>% 
