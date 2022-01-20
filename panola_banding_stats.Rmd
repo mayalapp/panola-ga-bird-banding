@@ -16,33 +16,84 @@ library(lubridate)
 
 ```{r load_data, warning=FALSE}
 # read in files with banding data and recapture data 
-recap_data <- read_excel("All Recaps Dec 9 2021.xls") 
-band_data <- read_excel("All bands Dec 9 2021.xls") %>% 
+recap_data <- read_excel("All Recaps Dec 9 2021.xls") %>% mutate(recap = TRUE)
+band_data <- read_excel("All bands Dec 9 2021.xls") %>% mutate(recap = FALSE) %>% 
   rename(Net = `Net/box`)
 
 # data cleaning for banding data
 all_data <- recap_data %>% 
   full_join(band_data)  %>% # join recap and band data 
+  filter(Location == "PANO") %>% 
   mutate(Time = str_split_fixed(Time, " ", 2)[,2]) %>% # only keep time (not [incorrect] date) **PPP**
   rename(banding_date = `Banding Date`, recapture_date = `Recapture Date`, how_captured = `How Captured`, band_number = `Band Number`, wing_chord = `Wing Chord`) %>%  # rename columns without spaces
   mutate(net_number = as.factor(as.numeric(Net)), Species = as.factor(Species)) %>% # only keep number for nets; change species to factor 
-  filter(!is.nan(net_number)) %>% 
+  filter(grepl("net", tolower(how_captured), fixed = TRUE)) %>% 
   mutate(obs_date = coalesce(recapture_date, banding_date)) %>% # create variable for data of observation (banding date if first time captured, otherwise recapture date)
-  mutate(obs_yr = as.numeric(format(obs_date, "%Y"))) # create variable for year of observation
+  mutate(obs_yr = as.numeric(format(obs_date, "%Y"))) # create variable for year of observation 
+  #mutate(Species = as.character(Species)) #%>% 
+  #mutate(Species = ifelse("WPWA", "PAWA", ifelse("YPWA", "PAWA", as.character(Species))))
  
 
 # read in year-cumulative data (ie net hours and unbanded captures)
 cumulative_data <- read_excel("pano_year_data.xlsx") 
+
+
+big_grasslands <- c("BLGR", "COYE", "EABL", "FISP", "INBU", "SAVS", "SWSP", "YBCH")
+all_grasslands <- c(big_grasslands, "AMKE", "BOBO", "GRSP", "HESP", "LESP", "LISP", "LOSH", "EAKI", "PRWA", "WISN", "SEWR", "VESP", "YEWA")
+# Big ones: Blue Grosbeak, Common Yellowthroat, Eastern Bluebird, Field Sparrow, Indigo Bunting, Savannah Sparrow, Swamp  Sparrow, and Yellow-breasted Chat 
+# 
+# Additional: American Kestrel, Bobolink, Grasshopper Sparrow, Henslow's Sparrow, LeConte's Sparrow, Lincoln's Sparrow, Loggerhead Shrike, Eastern Kingbird, Prairie Warbler, Wilson's Snipe, Sedge Wren, Vesper Sparrow and Yellow Warbler 
+# 
+# Western Palm Warbler and Yellow Palm Warbler are 2 subspecies of Palm Warbler and can be lumped for analysis.
+# 
+# Trail's Flycatcher and Willow Flycatcher are more or less the same species and can be lumped.
+# 
+# Eastern Phoebe is a WEIRD one.  It's not a grassland bird, but we catch loads of them - and they are almost all recently-fledged juveniles.  And we almost never recapture them.  I really need an analysis of them, but not sure how to handle it.
 
 ```
 Looking at BPNH
 ```{r}
 bpnh_data <- all_data %>%  
   group_by(obs_yr) %>% 
-  summarize(tot_birds = n()) %>% 
-  left_join(cumulative_data, by = c("obs_yr" = "year") ) %>% 
-  mutate(bpnh = tot_birds/net_hrs)
+  summarize(tot_birds = n()) %>%  # number of banded/recaptured birds for each year
+  left_join(cumulative_data, by = c("obs_yr" = "year") ) %>% # add net-hours and released bird data
+  mutate(tot_birds = tot_birds + unbanded_captures) %>% # include captured but released birds in tot_birds
+  select(-unbanded_captures) %>% #drop column
+  mutate(bpnh = tot_birds/net_hrs) #calculate birds per net hour 
+
+#all_data %>% filter(recap) %>% group_by(obs_yr) %>% summarize(n())
+#all_data %>% filter(!recap) %>% group_by(obs_yr) %>% summarize(n())
+
 bpnh_data  
+
+bpnh_data %>% 
+  ggplot(aes(x = obs_yr, y = bpnh)) +
+  geom_point()
+
+lm_bpnh <- lm(bpnh~obs_yr, bpnh_data)
+summary(lm_bpnh)
+```
+
+```{r}
+bpnh_data <- all_data %>%  
+  group_by(obs_yr, net_number) %>% 
+  summarize(tot_birds = n()) %>%  # number of banded/recaptured birds for each year
+  left_join(cumulative_data, by = c("obs_yr" = "year") ) %>% # add net-hours and released bird data
+  mutate(tot_birds = tot_birds + unbanded_captures) %>% # include captured but released birds in tot_birds
+  select(-unbanded_captures) %>% #drop column
+  mutate(bpnh = tot_birds/net_hrs) #calculate birds per net hour 
+
+#all_data %>% filter(recap) %>% group_by(obs_yr) %>% summarize(n())
+#all_data %>% filter(!recap) %>% group_by(obs_yr) %>% summarize(n())
+
+bpnh_data  
+
+bpnh_data %>% 
+  ggplot(aes(x = obs_yr, y = bpnh)) +
+  geom_point()
+
+lm_bpnh <- lm(bpnh~obs_yr, bpnh_data)
+summary(lm_bpnh)
 ```
 
 
@@ -85,6 +136,8 @@ write_excel_csv(net_spec_export, file = paste(Sys.Date(), "_net_percSpecies", ".
 write_excel_csv(net_spec_yr_export, file = paste(Sys.Date(), "_net_percSpecies_yr", ".csv", sep =""))
 
 ```
+
+
 
 
 ```{r}
