@@ -81,9 +81,11 @@ cumulative_data <- read_excel(cumulative_file)
 # functions for calculating stats and plotting
 
 # calculate BPNH for specific set of species 
-# input: my_spec - a list of the species we are interested in 
+# input: 
+# my_spec - a list of the species we are interested in 
+# file_id - optional input - added as a label to the end of the file if exporting bpnh data to csv
 # output: BPNH for each year for each species in my_spec 
-calc_bpnh <- function(my_spec){
+calc_bpnh <- function(my_spec, file_id = ""){
   out <- all_data %>%  
     filter(Species %in% my_spec) %>% 
     group_by(obs_yr, Species) %>% 
@@ -92,7 +94,22 @@ calc_bpnh <- function(my_spec){
     select(-unbanded_captures) %>% #drop column
     mutate(bpnh = tot_birds/net_hrs) #calculate birds per net hour 
   
+  if(export_data){
+    export_df(out %>%  select(-net_hrs), file_id = paste("_bpnh", file_id, sep = ""))
+  }
+  
   out
+}
+
+# export data to csv file - file starts with system date and time to make sure it doesn't overwrite another exported file 
+# inputs: 
+# df - dataframe 
+# file_id - (optional) string to add to file name to indicate what is in it 
+# out: exports df to csv file named "MM-DD-YYY_HHMMSS_data_file_id.csv" (e.g. 02-02-2022_112020_data_bpnh_grassland.csv")
+export_df <- function(df, file_id = ""){
+  datetime <- gsub(":", "", Sys.time())
+  datetime <- gsub(" ", "_", datetime)
+  write_excel_csv(df , file = paste(datetime, "_data", file_id, ".csv", sep = ""))
 }
 
 # plot BPNH for all species in bpnh_df
@@ -186,14 +203,14 @@ most_observed_birds <- all_data %>%
 most_observed_birds <- unique(most_observed_birds$Species)
 
 
-calc_bpnh(most_observed_birds) %>% plot_bpnh() 
+calc_bpnh(most_observed_birds, file_id = "_mostCaughtSpecies") %>% plot_bpnh() 
 ```
 
 
 # Plot BPNH for key grassland species
 
 ```{r} 
-calc_bpnh(key_grasslands) %>% plot_bpnh() 
+calc_bpnh(key_grasslands, file_id = "_grasslands") %>% plot_bpnh() 
 
 ```
 
@@ -202,7 +219,7 @@ calc_bpnh(key_grasslands) %>% plot_bpnh()
 Currently selected species: `r my_species` 
 
 ```{r}
-calc_bpnh(my_species) %>% plot_bpnh() 
+calc_bpnh(my_species, file_id = "_mySpecies") %>% plot_bpnh() 
 ```
 
 
