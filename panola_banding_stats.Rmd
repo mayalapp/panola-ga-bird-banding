@@ -42,10 +42,17 @@ cumulative_file <- "pano_year_data.xlsx"
 export_data <- FALSE 
 
 
-################  PARAMETERS ################ 
+################  PARAMETERS  YOU MAY WANT TO CHANGE ################ 
 # the minimum number of observations of a species needed for that species to be included in the analysis
 # Usage note: increase this to include fewer species; decrease this to include more species
 min_obs <- 150 
+
+# specific species of interest
+# Usage note: change the species listed here if you are interested in creating a plot of one or more specific species 
+my_species <- c("AMGO", "INBU") 
+
+
+################  PARAMETERS  YOU PROBABLY WON'T CHANGE ################ 
 
 # "Big" grassland species to be included in individual species analysis of grassland species  
 # Usage note: do not change this unless you want to analyze different grassland species
@@ -55,11 +62,8 @@ key_grasslands <- c("BLGR", "COYE", "EABL", "FISP", "INBU", "SAVS", "SWSP", "YBC
 # Usage note: do not change this unless you want to add/remove grassland species to the joint analysis of all grassland species 
 all_grasslands <- c(key_grasslands, "AMKE", "BOBO", "GRSP", "HESP", "LESP", "LISP", "LOSH", "EAKI", "PRWA", "WISN", "SEWR", "VESP", "YEWA")
 
-# specific species of interest - change the species listed here if you are interested in creating a plot of one or more specific species (usually species that  do not reach the minimum number of observations and are not "key" grassland species)
-my_species <- c("AMGO", "INBU") 
-
 # location for analysis
-# Usage note: you probably don't want to change this, but you can change this if you're interested in a different location
+# Usage note: do not change this unless you're interested in a different location (not panola)
 loc <- "PANO"
 ```
 
