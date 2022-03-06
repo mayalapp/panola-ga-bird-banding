@@ -14,38 +14,52 @@ library(tidyverse)
 library(readxl)
 library(lubridate)
 
-# Note: **PPP** = "Potential problem point" in code if trying to run new data 
+# Note: **PPP** = "Potential problem point" in code if trying to run new data - this may be useful for Maya if she is trying to debug the code 
 # TODO - things that still need to be completed by Maya
 ```
 
 ```{r params}
-# These are parameters you can change 
+# This section contains parameters that you can change when you run the analysis
+
+################ EXCEL DATA FILES ################ 
+# Change these file names to match the most recent data files
+# Usage note: the excel data files must be in the same folder as this Rmd file
 
 # file name for banding data
 band_file <- "All bands Dec 9 2021.xls"
 
-# file name for recapture data 
+# file name for recapture data
 recap_file <- "All Recaps Dec 9 2021.xls"
 
-# file name for BPNH for each year 
+# file name for the net-hours for each net
+net_hr_file <- "net_hours_example.xlsx"
+
+# file name for BPNH for each year
 cumulative_file <- "pano_year_data.xlsx"
 
-# the minimum number of observations of a species needed for that species to be included in the analysis 
-min_obs <- 150 
-
-# use this to export data to Excel -- TODO
+# Exporting data
+# Usage note: Set this to "TRUE" to export BPNH data to excel files. Set this to "FALSE" if you just want to plots and do not want to save the data. Files will be saved as "MM-DD-YY_HHMMSS_data_[file_id].csv" - where file_id is "most caught species, "grassland species", or "my species" 
 export_data <- FALSE 
 
-# "Big" grassland species to be included in grassland species analysis 
+
+################  PARAMETERS ################ 
+# the minimum number of observations of a species needed for that species to be included in the analysis
+# Usage note: increase this to include fewer species; decrease this to include more species
+min_obs <- 150 
+
+# "Big" grassland species to be included in individual species analysis of grassland species  
+# Usage note: do not change this unless you want to analyze different grassland species
 key_grasslands <- c("BLGR", "COYE", "EABL", "FISP", "INBU", "SAVS", "SWSP", "YBCH")
 
-# all grassland species 
+# All grassland species 
+# Usage note: do not change this unless you want to add/remove grassland species to the joint analysis of all grassland species 
 all_grasslands <- c(key_grasslands, "AMKE", "BOBO", "GRSP", "HESP", "LESP", "LISP", "LOSH", "EAKI", "PRWA", "WISN", "SEWR", "VESP", "YEWA")
 
-# specific species of interest - change the species listed here if you are interested in creating a plot of a specific species 
+# specific species of interest - change the species listed here if you are interested in creating a plot of one or more specific species (usually species that  do not reach the minimum number of observations and are not "key" grassland species)
 my_species <- c("AMGO", "INBU") 
 
-# location of interest for analysis - change this if you're interested in a different location
+# location for analysis
+# Usage note: you probably don't want to change this, but you can change this if you're interested in a different location
 loc <- "PANO"
 ```
 
@@ -75,6 +89,22 @@ all_data <- recap_data %>%
 # read in year-cumulative data (ie net hours and unbanded captures)
 cumulative_data <- read_excel(cumulative_file) 
 
+# read in and clean net-hour data 
+net_hr_data <- read_excel(net_hr_file) %>% 
+  mutate(Date = as.Date(as.numeric(Date), origin = "1899-12-30")) %>% # keep date from excel file
+  filter(!is.na(Date)) %>%  # delete rows with no date
+  gather(key= "net", value = "hrs", -Date) %>% # gather so there is one row for each net for each date
+  mutate(hrs = as.numeric(hrs), year = format(Date, "%Y"))
+
+# calculate total number of net-hrs per year
+#cumulative_data = net_hr_data %>% 
+#  group_by(year)%>% 
+#  summarize(hrs = sum(hrs, na.rm = TRUE))
+
+# calculate total number of net-hrs per net
+net_hrs_per_net <- net_hr_data %>% 
+  group_by(year, net)%>% 
+  summarize(hrs = sum(hrs, na.rm = TRUE))
 ```
 
 ```{r funs}
